@@ -1,0 +1,1 @@
+This is a university project for the course Programowanie w Internecie. The website features a shopping list with various conveniences. It was created due to the lack of functionalities I needed in other applications.
