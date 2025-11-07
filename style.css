@@ -211,6 +211,8 @@ li:hover .delete-btn,
 }
 
 input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: checkbox;
   accent-color: var(--checkbox-color);
 }
 
