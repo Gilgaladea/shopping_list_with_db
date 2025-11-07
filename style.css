@@ -211,8 +211,8 @@ li:hover .delete-btn,
 }
 
 input[type="checkbox"] {
-  appearance: auto;
   -webkit-appearance: checkbox;
+  accent-color: var(--checkbox-color);
 }
 
 hr {
@@ -339,5 +339,30 @@ hr {
 
   body.loaded .container {
     scroll-behavior: auto;
+  }
+
+   body {
+    font-size: 16px;
+  }
+
+   h2, h3 {
+    font-size: 1.2rem;
+  }
+
+  .add-form input,
+  .add-form select,
+  .add-form button,
+  #searchInput {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 14px; /* dla mniejszych ekranów */
+  }
+
+  h2, h3 {
+    font-size: 1rem;
   }
 }
