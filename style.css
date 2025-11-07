@@ -342,27 +342,17 @@ hr {
   }
 
    body {
-    font-size: 16px;
+    font-size: 20px;
   }
 
    h2, h3 {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
   }
 
   .add-form input,
   .add-form select,
   .add-form button,
   #searchInput {
-    font-size: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  body {
-    font-size: 14px; /* dla mniejszych ekranów */
-  }
-
-  h2, h3 {
     font-size: 1rem;
   }
 }
