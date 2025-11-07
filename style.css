@@ -22,7 +22,6 @@
   --scrollbar-thumb: #cccccc;
   --scrollbar-track: #f5f5f5;
   --checkbox-color: black;
-  --checkbox-checkmark: white;
 }
 
 /* Dark Mode */
@@ -47,7 +46,6 @@
   --scrollbar-thumb: #555555;
   --scrollbar-track: #1e1e1e;
   --checkbox-color: white;
-  --checkbox-checkmark: black;
 }
 
 /* pasek przewijania */
@@ -357,4 +355,29 @@ hr {
   #searchInput {
     font-size: 1rem;
   }
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--checkbox-color);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 33%;
+  top: 11%;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+  border-color: var(--checkbox-color);
 }
