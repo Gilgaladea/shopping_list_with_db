@@ -48,6 +48,10 @@
   --checkbox-color: white;
 }
 
+.dark-mode input[type="checkbox"] {
+  accent-color: #ffffff; /* biały ptaszek w ciemnym tle */
+}
+
 /* pasek przewijania */
 body::-webkit-scrollbar {
   width: 8px;
