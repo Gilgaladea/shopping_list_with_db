@@ -7,24 +7,40 @@ const defaultCategoryOrder = [
   "dry", "frozen", "beverages", "snacks", "other"
 ];
 
-let categoryOrder = JSON.parse(localStorage.getItem("categoryOrder")) || defaultCategoryOrder;
+let categoryOrder = defaultCategoryOrder;
 
-function saveData() {
-  localStorage.setItem("shoppingList", JSON.stringify(shoppingList));
-  localStorage.setItem("categoryOrder", JSON.stringify(categoryOrder));
+// === FIREBASE ===
+const db = window.db;
+const { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } = window.firestore;
+
+// === DATABASE FUNCTIONS ===
+async function loadData() {
+  const q = collection(db, "shoppingList");
+  onSnapshot(q, snapshot => {
+    shoppingList = snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+    renderLists();
+  });
 }
 
-function toggleToBuy(id) {
+async function addProductToDB(name, category) {
+  const newItem = { name, category, toBuy: false };
+  const docRef = await addDoc(collection(db, "shoppingList"), newItem);
+}
+
+async function toggleToBuy(id) {
   const item = shoppingList.find(i => i.id === id);
   if (!item) return;
   item.toBuy = !item.toBuy;
-  saveData();
+  await updateDoc(doc(db, "shoppingList", id), { toBuy: item.toBuy });
   renderLists();
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
+  await deleteDoc(doc(db, "shoppingList", id));
   shoppingList = shoppingList.filter(i => i.id !== id);
-  saveData();
   renderLists();
 }
 
@@ -125,7 +141,6 @@ function renderCategoryOrderList() {
       li.classList.remove("dragging");
       const newOrder = [...ul.querySelectorAll("li")].map(li => li.dataset.category);
       categoryOrder = newOrder;
-      saveData();
       renderLists();
     });
 
@@ -142,6 +157,7 @@ function renderCategoryOrderList() {
       ul.insertBefore(dragging, afterElement);
     }
   });
+  document.getElementById("categoryOrderList").style.display = "none";
 }
 
 function updateLanguageUI() {
@@ -183,8 +199,6 @@ function toggleCategoryOrderVisibility() {
   const isHidden = list.style.display === "none";
   list.style.display = isHidden ? "block" : "none";
   if (icon) icon.textContent = isHidden ? "▲" : "▼";
-
-  localStorage.setItem("categoryOrderVisible", isHidden ? "true" : "false");
 }
 
 function getDragAfterElement(container, y) {
@@ -201,15 +215,12 @@ function getDragAfterElement(container, y) {
 }
 
 function setupEventListeners() {
-  document.getElementById("addItemForm").addEventListener("submit", e => {
+  document.getElementById("addItemForm").addEventListener("submit", async e => {
     e.preventDefault();
     const name = document.getElementById("itemName").value;
     const category = document.getElementById("itemCategory").value;
     if (!name || !category) return;
-
-    shoppingList.push({ id: Date.now(), name, category, toBuy: false });
-    saveData();
-    renderLists();
+    await addProductToDB(name, category);
     e.target.reset();
     document.getElementById("itemName").focus();
   });
@@ -236,7 +247,7 @@ function setupEventListeners() {
 }
 
 // === INIT ===
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const banner = document.getElementById('cookie-banner');
   const acceptBtn = document.getElementById('accept-cookies');
   const cookiesAccepted = localStorage.getItem('cookiesAccepted');
@@ -250,24 +261,14 @@ document.addEventListener("DOMContentLoaded", () => {
     banner.style.display = 'none';
   });
 
-  shoppingList = JSON.parse(localStorage.getItem("shoppingList")) || [];
-  categoryOrder = JSON.parse(localStorage.getItem("categoryOrder")) || defaultCategoryOrder;
   currentLang = localStorage.getItem("lang") || "pl";
-
   const savedTheme = localStorage.getItem("theme");
   if (savedTheme === "dark") document.body.classList.add("dark-mode");
 
-  const isVisible = localStorage.getItem("categoryOrderVisible") === "true";
-  const list = document.getElementById("categoryOrderList");
-  const icon = document.getElementById("toggleIcon");
-  if (list) list.style.display = isVisible ? "block" : "none";
-  if (icon) icon.textContent = isVisible ? "▲" : "▼";
-
   setupEventListeners();
   updateLanguageUI();
-});
+  loadData();
 
-document.addEventListener("DOMContentLoaded", () => {
   document.body.classList.add('loaded');
   const container = document.querySelector('.container');
   const main = document.querySelector('.main');

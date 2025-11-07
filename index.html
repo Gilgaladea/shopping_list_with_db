@@ -78,8 +78,31 @@
 
   </div>
 
-  <script src="translations.js"></script>
-  <script src="script.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } 
+    from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCFORia989pRh6Q7n0PRPv2JYM-7kFj1vU",
+  authDomain: "shopping-list-c5094.firebaseapp.com",
+  databaseURL: "https://shopping-list-c5094-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "shopping-list-c5094",
+  storageBucket: "shopping-list-c5094.firebasestorage.app",
+  messagingSenderId: "1000790903406",
+  appId: "1:1000790903406:web:8aec9092b4a1599573f47f",
+  measurementId: "G-LNM76JR6KK"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.db = db;
+  window.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot };
+</script>
+
+<script src="translations.js" defer></script>
+<script src="script.js" defer></script>
 
   <div id="cookie-banner" class="cookie-banner">
     <p>Ta strona używa plików cookies w celach funkcjonalnych.</p>
