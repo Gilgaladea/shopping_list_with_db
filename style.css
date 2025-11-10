@@ -360,20 +360,22 @@ hr {
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--checkbox-color);
-  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--checkbox-color);
+  border-radius: 15%;
   background: transparent;
   cursor: pointer;
   position: relative;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
-  left: 33%;
-  top: 11%;
+  left: 28%;
+  top: 6%;
   width: 5px;
   height: 9px;
   border: solid white;
