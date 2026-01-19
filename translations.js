@@ -13,6 +13,8 @@ const translations = {
     themeToggleDark: "Tryb ciemny",
     themeToggleLight: "Tryb jasny",
     languageToggle: "English",
+    cookieBannerText: "Ta strona używa plików cookies w celach funkcjonalnych.",
+    cookieAccept: "Akceptuję",
     categories: {
       dairy: "Nabiał",
       bread: "Pieczywo",
@@ -41,6 +43,8 @@ const translations = {
     themeToggleDark: "Dark mode",
     themeToggleLight: "Light mode",
     languageToggle: "Polski",
+    cookieBannerText: "This site uses cookies for functional purposes.",
+    cookieAccept: "Accept",
     categories: {
       dairy: "Dairy",
       bread: "Bread",

@@ -1,6 +1,7 @@
 // === MODEL ===
 let shoppingList = [];
 let currentLang = "pl";
+let cookiesAccepted = false;
 
 const defaultCategoryOrder = [
   "dairy", "bread", "fruits", "vegetables", "meat", "fish",
@@ -26,19 +27,21 @@ async function loadData() {
 }
 
 async function addProductToDB(name, category) {
+  if (!cookiesAccepted) return;
   const newItem = { name, category, toBuy: false };
   const docRef = await addDoc(collection(db, "shoppingList"), newItem);
 }
 
 async function toggleToBuy(id) {
   const item = shoppingList.find(i => i.id === id);
-  if (!item) return;
+  if (!item || !cookiesAccepted) return;
   item.toBuy = !item.toBuy;
   await updateDoc(doc(db, "shoppingList", id), { toBuy: item.toBuy });
   renderLists();
 }
 
 async function deleteProduct(id) {
+  if (!cookiesAccepted) return;
   await deleteDoc(doc(db, "shoppingList", id));
   shoppingList = shoppingList.filter(i => i.id !== id);
   renderLists();
@@ -187,8 +190,18 @@ function updateLanguageUI() {
     select.options[i].textContent = translations[currentLang].categories[val];
   }
 
+  updateCookieBannerUI();
   renderCategoryOrderList();
   renderLists();
+}
+
+function updateCookieBannerUI() {
+  const t = translations[currentLang];
+  const bannerText = document.querySelector("#cookie-banner p");
+  const bannerBtn = document.querySelector("#accept-cookies");
+  
+  if (bannerText) bannerText.textContent = t.cookieBannerText;
+  if (bannerBtn) bannerBtn.textContent = t.cookieAccept;
 }
 
 // === CONTROLLER ===
@@ -250,14 +263,18 @@ function setupEventListeners() {
 document.addEventListener("DOMContentLoaded", async () => {
   const banner = document.getElementById('cookie-banner');
   const acceptBtn = document.getElementById('accept-cookies');
-  const cookiesAccepted = localStorage.getItem('cookiesAccepted');
+  const savedCookiesAccepted = localStorage.getItem('cookiesAccepted');
 
-  if (cookiesAccepted !== 'true') {
+  if (savedCookiesAccepted === 'true') {
+    cookiesAccepted = true;
+    banner.style.display = 'none';
+  } else {
     banner.style.display = 'block';
   }
 
   acceptBtn.addEventListener('click', () => {
     localStorage.setItem('cookiesAccepted', 'true');
+    cookiesAccepted = true;
     banner.style.display = 'none';
   });
 
