@@ -26,9 +26,9 @@ async function loadData() {
   });
 }
 
-async function addProductToDB(name, category) {
+async function addProductToDB(name, category, quantity = 1, unit = "szt") {
   if (!cookiesAccepted) return;
-  const newItem = { name, category, toBuy: false };
+  const newItem = { name, category, quantity, unit, toBuy: false };
   const docRef = await addDoc(collection(db, "shoppingList"), newItem);
 }
 
@@ -36,8 +36,33 @@ async function toggleToBuy(id) {
   const item = shoppingList.find(i => i.id === id);
   if (!item || !cookiesAccepted) return;
   item.toBuy = !item.toBuy;
-  await updateDoc(doc(db, "shoppingList", id), { toBuy: item.toBuy });
+  
+  // When adding to shopping list, set default quantity
+  if (item.toBuy && !item.quantity) {
+    item.quantity = 1;
+  }
+  
+  await updateDoc(doc(db, "shoppingList", id), { 
+    toBuy: item.toBuy,
+    quantity: item.quantity || 1
+  });
   renderLists();
+}
+
+async function updateQuantity(id, newQuantity) {
+  if (!cookiesAccepted || newQuantity <= 0) return;
+  const item = shoppingList.find(i => i.id === id);
+  if (!item) return;
+  item.quantity = newQuantity;
+  await updateDoc(doc(db, "shoppingList", id), { quantity: newQuantity });
+}
+
+async function updateUnit(id, newUnit) {
+  if (!cookiesAccepted) return;
+  const item = shoppingList.find(i => i.id === id);
+  if (!item) return;
+  item.unit = newUnit;
+  await updateDoc(doc(db, "shoppingList", id), { unit: newUnit });
 }
 
 async function deleteProduct(id) {
@@ -112,6 +137,7 @@ function renderLists() {
       .forEach(item => {
         const li = document.createElement("li");
         li.classList.add("product-item");
+        li.dataset.id = item.id;
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -122,8 +148,32 @@ function renderLists() {
         label.className = "product-label";
         label.textContent = item.name;
 
+        const quantityInput = document.createElement("input");
+        quantityInput.type = "number";
+        quantityInput.className = "quantity-input";
+        quantityInput.value = item.quantity || 1;
+        quantityInput.min = "1";
+        quantityInput.step = "1";
+        quantityInput.addEventListener("change", () => updateQuantity(item.id, parseFloat(quantityInput.value) || 1));
+
+        const unitSelect = document.createElement("select");
+        unitSelect.className = "unit-select";
+        
+        const unitOptions = ["szt", "g", "ml", "kg", "l"];
+        unitOptions.forEach(unit => {
+          const option = document.createElement("option");
+          option.value = unit;
+          option.textContent = translations[currentLang].units[unit] || unit;
+          unitSelect.appendChild(option);
+        });
+        
+        unitSelect.value = item.unit || "szt";
+        unitSelect.addEventListener("change", () => updateUnit(item.id, unitSelect.value));
+
         li.appendChild(checkbox);
         li.appendChild(label);
+        li.appendChild(quantityInput);
+        li.appendChild(unitSelect);
         toBuyList.appendChild(li);
       });
   });

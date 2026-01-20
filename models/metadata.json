@@ -1,0 +1,16 @@
+{
+  "classes": [
+    "ADD_NEW_PRODUCT",
+    "ADD_TO_LIST",
+    "REMOVE_FROM_LIST"
+  ],
+  "class_to_idx": {
+    "ADD_NEW_PRODUCT": 0,
+    "ADD_TO_LIST": 1,
+    "REMOVE_FROM_LIST": 2
+  },
+  "sample_rate": 16000,
+  "n_mfcc": 13,
+  "max_len": 94,
+  "accuracy": 0.8108108043670654
+}

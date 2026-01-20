@@ -388,3 +388,186 @@ input[type="checkbox"]:checked::after {
   transform: rotate(45deg);
   border-color: var(--checkbox-color);
 }
+
+/* ==========================
+   Quantity Input for Shopping List
+   ========================== */
+.quantity-input {
+  width: 60px;
+  padding: 4px 6px;
+  font-size: 0.9rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  text-align: center;
+  margin-left: auto;
+}
+
+.quantity-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.unit-select {
+  width: 50px;
+  padding: 4px 4px;
+  font-size: 0.85rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  text-align: center;
+  cursor: pointer;
+}
+
+.unit-select:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+/* ==========================
+   Quantity Group Styling (Form)
+   ========================== */
+.quantity-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.quantity-group input {
+  flex: 2;
+  font-size: 1rem;
+}
+
+.quantity-group select {
+  flex: 1;
+  font-size: 1rem;
+}
+
+/* ==========================
+   Voice Assistant Button
+   ========================== */
+.voice-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: var(--button-bg);
+  border: 2px solid var(--input-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  z-index: 9998;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.voice-btn:hover {
+  background-color: var(--button-hover-bg);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.voice-btn.listening {
+  animation: pulse-ring 1.5s infinite;
+  background-color: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.voice-btn.listening .voice-icon {
+  animation: mic-pulse 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 15px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+@keyframes mic-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.voice-status {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  background-color: var(--button-bg);
+  color: var(--text-color);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  max-width: 200px;
+  word-wrap: break-word;
+  z-index: 9998;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slide-up 0.3s ease;
+}
+
+.voice-status.show {
+  display: block;
+}
+
+.voice-status.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border-color: #ef5350;
+}
+
+.voice-status.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #81c784;
+}
+
+.voice-status.processing {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border-color: #64b5f6;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .voice-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    bottom: 15px;
+    right: 15px;
+  }
+
+  .voice-status {
+    bottom: 75px;
+    right: 15px;
+    max-width: 150px;
+    font-size: 12px;
+  }
+}
