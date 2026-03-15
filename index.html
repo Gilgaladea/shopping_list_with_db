@@ -78,14 +78,6 @@
 
   </div>
 
-  <!-- Voice Assistant Button -->
-  <button id="voiceButton" class="voice-btn" title="Voice Assistant">
-    <span class="voice-icon">🎤</span>
-  </button>
-
-  <!-- Voice Status Display -->
-  <div id="voiceStatus" class="voice-status"></div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } 
@@ -110,7 +102,6 @@ const firebaseConfig = {
 </script>
 
 <script src="translations.js" defer></script>
-<script src="voiceAssistant.js" defer></script>
 <script src="script.js" defer></script>
 
   <div id="cookie-banner" class="cookie-banner">
