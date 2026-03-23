@@ -199,7 +199,8 @@ li:hover .delete-btn,
 }
 
 #themeToggle,
-#languageToggle {
+#languageToggle,
+#undoButton {
   background: none;
   border: 1px solid var(--input-border);
   border-radius: 5px;
@@ -208,6 +209,12 @@ li:hover .delete-btn,
   font-size: 1rem;
   background-color: var(--button-bg);
   color: var(--text-color);
+}
+
+#undoButton:disabled,
+#undoButton.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 input[type="checkbox"] {

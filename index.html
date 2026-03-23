@@ -20,6 +20,9 @@
       <div class="toggle-container">
         <button id="themeToggle">Tryb ciemny</button>
       </div>
+      <div class="toggle-container">
+        <button id="undoButton" aria-label="Cofnij ostatnią zmianę">Cofnij</button>
+      </div>
 
       <hr>
 
@@ -80,7 +83,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } 
+  import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } 
     from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -98,7 +101,7 @@ const firebaseConfig = {
   const db = getFirestore(app);
 
   window.db = db;
-  window.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot };
+  window.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc };
 </script>
 
 <script src="translations.js" defer></script>

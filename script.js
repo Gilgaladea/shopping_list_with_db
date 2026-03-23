@@ -9,10 +9,60 @@ const defaultCategoryOrder = [
 ];
 
 let categoryOrder = defaultCategoryOrder;
+const undoStack = [];
+const MAX_UNDO_STEPS = 30;
+let isUndoInProgress = false;
 
 // === FIREBASE ===
 const db = window.db;
-const { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } = window.firestore;
+const { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } = window.firestore;
+
+function pushUndoAction(action) {
+  if (isUndoInProgress) return;
+  undoStack.push(action);
+  if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+  updateUndoUI();
+}
+
+function updateUndoUI() {
+  const undoBtn = document.getElementById("undoButton");
+  if (!undoBtn) return;
+  undoBtn.disabled = undoStack.length === 0;
+  undoBtn.classList.toggle("disabled", undoStack.length === 0);
+}
+
+function isEditableElement(element) {
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || element.isContentEditable;
+}
+
+async function undoLastChange() {
+  if (!cookiesAccepted) return;
+  const action = undoStack.pop();
+  updateUndoUI();
+  if (!action) return;
+
+  isUndoInProgress = true;
+  try {
+    if (action.type === "add") {
+      await deleteDoc(doc(db, "shoppingList", action.id));
+    } else if (action.type === "delete") {
+      await setDoc(doc(db, "shoppingList", action.item.id), action.item);
+    } else if (action.type === "toggle") {
+      await updateDoc(doc(db, "shoppingList", action.id), {
+        toBuy: action.previousToBuy,
+        quantity: action.previousQuantity
+      });
+    } else if (action.type === "updateQuantity") {
+      await updateDoc(doc(db, "shoppingList", action.id), { quantity: action.previousQuantity });
+    } else if (action.type === "updateUnit") {
+      await updateDoc(doc(db, "shoppingList", action.id), { unit: action.previousUnit });
+    }
+  } finally {
+    isUndoInProgress = false;
+  }
+}
 
 // === DATABASE FUNCTIONS ===
 async function loadData() {
@@ -30,11 +80,14 @@ async function addProductToDB(name, category, quantity = 1, unit = "szt") {
   if (!cookiesAccepted) return;
   const newItem = { name, category, quantity, unit, toBuy: false };
   const docRef = await addDoc(collection(db, "shoppingList"), newItem);
+  pushUndoAction({ type: "add", id: docRef.id });
 }
 
 async function toggleToBuy(id) {
   const item = shoppingList.find(i => i.id === id);
   if (!item || !cookiesAccepted) return;
+  const previousToBuy = item.toBuy;
+  const previousQuantity = item.quantity || 1;
   item.toBuy = !item.toBuy;
   
   // When adding to shopping list, set default quantity
@@ -46,6 +99,7 @@ async function toggleToBuy(id) {
     toBuy: item.toBuy,
     quantity: item.quantity || 1
   });
+  pushUndoAction({ type: "toggle", id, previousToBuy, previousQuantity });
   renderLists();
 }
 
@@ -53,21 +107,30 @@ async function updateQuantity(id, newQuantity) {
   if (!cookiesAccepted || newQuantity <= 0) return;
   const item = shoppingList.find(i => i.id === id);
   if (!item) return;
+  const previousQuantity = item.quantity || 1;
+  if (previousQuantity === newQuantity) return;
   item.quantity = newQuantity;
   await updateDoc(doc(db, "shoppingList", id), { quantity: newQuantity });
+  pushUndoAction({ type: "updateQuantity", id, previousQuantity });
 }
 
 async function updateUnit(id, newUnit) {
   if (!cookiesAccepted) return;
   const item = shoppingList.find(i => i.id === id);
   if (!item) return;
+  const previousUnit = item.unit || "szt";
+  if (previousUnit === newUnit) return;
   item.unit = newUnit;
   await updateDoc(doc(db, "shoppingList", id), { unit: newUnit });
+  pushUndoAction({ type: "updateUnit", id, previousUnit });
 }
 
 async function deleteProduct(id) {
   if (!cookiesAccepted) return;
+  const item = shoppingList.find(i => i.id === id);
+  if (!item) return;
   await deleteDoc(doc(db, "shoppingList", id));
+  pushUndoAction({ type: "delete", item: { ...item } });
   shoppingList = shoppingList.filter(i => i.id !== id);
   renderLists();
 }
@@ -233,6 +296,11 @@ function updateLanguageUI() {
     : t.themeToggleDark;
 
   document.querySelector("#languageToggle").textContent = t.languageToggle;
+  const undoBtn = document.querySelector("#undoButton");
+  if (undoBtn) {
+    undoBtn.textContent = t.undo;
+    undoBtn.title = t.undoShortcutHint;
+  }
 
   const select = document.getElementById("itemCategory");
   for (let i = 1; i < select.options.length; i++) {
@@ -307,6 +375,19 @@ function setupEventListeners() {
 
   document.querySelector(".toggle-category-order")
     .addEventListener("click", toggleCategoryOrderVisibility);
+
+  const undoBtn = document.getElementById("undoButton");
+  if (undoBtn) {
+    undoBtn.addEventListener("click", undoLastChange);
+  }
+
+  document.addEventListener("keydown", async e => {
+    const isUndoShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey;
+    if (!isUndoShortcut) return;
+    if (isEditableElement(e.target)) return;
+    e.preventDefault();
+    await undoLastChange();
+  });
 }
 
 // === INIT ===
@@ -333,6 +414,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (savedTheme === "dark") document.body.classList.add("dark-mode");
 
   setupEventListeners();
+  updateUndoUI();
   updateLanguageUI();
   loadData();
 
