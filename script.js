@@ -1,7 +1,6 @@
 // === MODEL ===
 let shoppingList = [];
 let currentLang = "pl";
-let cookiesAccepted = false;
 
 const defaultCategoryOrder = [
   "dairy", "bread", "fruits", "vegetables", "meat", "fish",
@@ -12,10 +11,104 @@ let categoryOrder = defaultCategoryOrder;
 const undoStack = [];
 const MAX_UNDO_STEPS = 30;
 let isUndoInProgress = false;
+let currentUserId = "";
+let householdId = "";
+let appReady = false;
+let shoppingUnsubscribe = null;
 
 // === FIREBASE ===
 const db = window.db;
-const { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } = window.firestore;
+const { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc, serverTimestamp } = window.firestore;
+const { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } = window.firebaseAuth;
+
+function getShoppingListCollectionRef() {
+  if (!householdId) throw new Error("Brak aktywnego household. Zaloguj się ponownie.");
+  return collection(db, "households", householdId, "shoppingList");
+}
+
+function getShoppingItemDocRef(itemId) {
+  if (!householdId) throw new Error("Brak aktywnego household. Zaloguj się ponownie.");
+  return doc(db, "households", householdId, "shoppingList", itemId);
+}
+
+async function ensureUserAndHousehold() {
+  currentUserId = auth.currentUser ? auth.currentUser.uid : "";
+  if (!currentUserId) throw new Error("Brak zalogowanego użytkownika.");
+  await auth.currentUser.getIdToken(true);
+  const userRef = doc(db, "users", currentUserId);
+  const userSnapshot = await getDoc(userRef);
+  const bootstrapOwnHousehold = async () => {
+    householdId = `household-${currentUserId}`;
+    const ownHouseholdRef = doc(db, "households", householdId);
+    await setDoc(ownHouseholdRef, { name: "Dom", members: [currentUserId] }, { merge: true });
+    await setDoc(userRef, { householdId }, { merge: true });
+  };
+
+  if (!userSnapshot.exists() || !userSnapshot.data().householdId) {
+    await bootstrapOwnHousehold();
+  } else {
+    householdId = userSnapshot.data().householdId;
+    try {
+      const householdRef = doc(db, "households", householdId);
+      const householdSnapshot = await getDoc(householdRef);
+      const householdData = householdSnapshot.exists() ? householdSnapshot.data() : {};
+      const existingMembers = Array.isArray(householdData.members) ? householdData.members : [];
+      if (!existingMembers.includes(currentUserId)) {
+        const householdName = typeof householdData.name === "string" && householdData.name
+          ? householdData.name
+          : "Dom";
+        await setDoc(householdRef, { name: householdName, members: [...existingMembers, currentUserId] }, { merge: true });
+      }
+    } catch (error) {
+      const code = error && error.code ? error.code : "";
+      // Recover from stale/invalid household assignment by bootstrapping a personal household.
+      if (code === "permission-denied" || code === "not-found") {
+        await bootstrapOwnHousehold();
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  localStorage.setItem("shoppingHouseholdId", householdId);
+  updateHouseholdMetaUI();
+}
+
+function updateHouseholdMetaUI() {
+  const uidLabel = document.getElementById("currentUidLabel");
+  const householdLabel = document.getElementById("currentHouseholdLabel");
+  if (uidLabel) uidLabel.textContent = currentUserId || "-";
+  if (householdLabel) householdLabel.textContent = householdId || "-";
+}
+
+function setHouseholdMessage(message, isError = false) {
+  const messageEl = document.getElementById("householdActionMessage");
+  if (!messageEl) return;
+  messageEl.textContent = message;
+  messageEl.style.color = isError ? "#c62828" : "";
+}
+
+async function addMemberToHousehold(memberUid) {
+  if (!appReady || !currentUserId || !householdId) {
+    throw new Error("Najpierw zaloguj się do aplikacji.");
+  }
+  const normalizedUid = (memberUid || "").trim();
+  if (!normalizedUid) return false;
+
+  const householdRef = doc(db, "households", householdId);
+  const householdSnapshot = await getDoc(householdRef);
+  if (!householdSnapshot.exists()) {
+    throw new Error("Nie znaleziono household.");
+  }
+
+  const data = householdSnapshot.data();
+  const name = data.name || "Dom";
+  const members = Array.isArray(data.members) ? data.members : [];
+  if (members.includes(normalizedUid)) return null;
+
+  await setDoc(householdRef, { name, members: [...members, normalizedUid] }, { merge: true });
+  return true;
+}
 
 function pushUndoAction(action) {
   if (isUndoInProgress) return;
@@ -38,7 +131,7 @@ function isEditableElement(element) {
 }
 
 async function undoLastChange() {
-  if (!cookiesAccepted) return;
+  if (!appReady) return;
   const action = undoStack.pop();
   updateUndoUI();
   if (!action) return;
@@ -46,18 +139,30 @@ async function undoLastChange() {
   isUndoInProgress = true;
   try {
     if (action.type === "add") {
-      await deleteDoc(doc(db, "shoppingList", action.id));
+      await deleteDoc(getShoppingItemDocRef(action.id));
     } else if (action.type === "delete") {
-      await setDoc(doc(db, "shoppingList", action.item.id), action.item);
+      const { createdAt, updatedAt, ...rest } = action.item;
+      await setDoc(getShoppingItemDocRef(action.item.id), {
+        ...rest,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
     } else if (action.type === "toggle") {
-      await updateDoc(doc(db, "shoppingList", action.id), {
+      await updateDoc(getShoppingItemDocRef(action.id), {
         toBuy: action.previousToBuy,
-        quantity: action.previousQuantity
+        quantity: action.previousQuantity,
+        updatedAt: serverTimestamp()
       });
     } else if (action.type === "updateQuantity") {
-      await updateDoc(doc(db, "shoppingList", action.id), { quantity: action.previousQuantity });
+      await updateDoc(getShoppingItemDocRef(action.id), {
+        quantity: action.previousQuantity,
+        updatedAt: serverTimestamp()
+      });
     } else if (action.type === "updateUnit") {
-      await updateDoc(doc(db, "shoppingList", action.id), { unit: action.previousUnit });
+      await updateDoc(getShoppingItemDocRef(action.id), {
+        unit: action.previousUnit,
+        updatedAt: serverTimestamp()
+      });
     }
   } finally {
     isUndoInProgress = false;
@@ -66,26 +171,38 @@ async function undoLastChange() {
 
 // === DATABASE FUNCTIONS ===
 async function loadData() {
-  const q = collection(db, "shoppingList");
-  onSnapshot(q, snapshot => {
+  const q = getShoppingListCollectionRef();
+  if (shoppingUnsubscribe) shoppingUnsubscribe();
+  shoppingUnsubscribe = onSnapshot(q, snapshot => {
     shoppingList = snapshot.docs.map(d => ({
       id: d.id,
       ...d.data()
     }));
+    try {
+      localStorage.setItem("shoppingListCache", JSON.stringify(shoppingList));
+    } catch (_) {}
     renderLists();
   });
 }
 
 async function addProductToDB(name, category, quantity = 1, unit = "szt") {
-  if (!cookiesAccepted) return;
-  const newItem = { name, category, quantity, unit, toBuy: false };
-  const docRef = await addDoc(collection(db, "shoppingList"), newItem);
+  if (!appReady) return;
+  const newItem = {
+    name,
+    category,
+    quantity,
+    unit,
+    toBuy: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  const docRef = await addDoc(getShoppingListCollectionRef(), newItem);
   pushUndoAction({ type: "add", id: docRef.id });
 }
 
 async function toggleToBuy(id) {
   const item = shoppingList.find(i => i.id === id);
-  if (!item || !cookiesAccepted) return;
+  if (!item || !appReady) return;
   const previousToBuy = item.toBuy;
   const previousQuantity = item.quantity || 1;
   item.toBuy = !item.toBuy;
@@ -95,41 +212,48 @@ async function toggleToBuy(id) {
     item.quantity = 1;
   }
   
-  await updateDoc(doc(db, "shoppingList", id), { 
+  await updateDoc(getShoppingItemDocRef(id), {
     toBuy: item.toBuy,
-    quantity: item.quantity || 1
+    quantity: item.quantity || 1,
+    updatedAt: serverTimestamp()
   });
   pushUndoAction({ type: "toggle", id, previousToBuy, previousQuantity });
   renderLists();
 }
 
 async function updateQuantity(id, newQuantity) {
-  if (!cookiesAccepted || newQuantity <= 0) return;
+  if (!appReady || newQuantity <= 0) return;
   const item = shoppingList.find(i => i.id === id);
   if (!item) return;
   const previousQuantity = item.quantity || 1;
   if (previousQuantity === newQuantity) return;
   item.quantity = newQuantity;
-  await updateDoc(doc(db, "shoppingList", id), { quantity: newQuantity });
+  await updateDoc(getShoppingItemDocRef(id), {
+    quantity: newQuantity,
+    updatedAt: serverTimestamp()
+  });
   pushUndoAction({ type: "updateQuantity", id, previousQuantity });
 }
 
 async function updateUnit(id, newUnit) {
-  if (!cookiesAccepted) return;
+  if (!appReady) return;
   const item = shoppingList.find(i => i.id === id);
   if (!item) return;
   const previousUnit = item.unit || "szt";
   if (previousUnit === newUnit) return;
   item.unit = newUnit;
-  await updateDoc(doc(db, "shoppingList", id), { unit: newUnit });
+  await updateDoc(getShoppingItemDocRef(id), {
+    unit: newUnit,
+    updatedAt: serverTimestamp()
+  });
   pushUndoAction({ type: "updateUnit", id, previousUnit });
 }
 
 async function deleteProduct(id) {
-  if (!cookiesAccepted) return;
+  if (!appReady) return;
   const item = shoppingList.find(i => i.id === id);
   if (!item) return;
-  await deleteDoc(doc(db, "shoppingList", id));
+  await deleteDoc(getShoppingItemDocRef(id));
   pushUndoAction({ type: "delete", item: { ...item } });
   shoppingList = shoppingList.filter(i => i.id !== id);
   renderLists();
@@ -301,6 +425,30 @@ function updateLanguageUI() {
     undoBtn.textContent = t.undo;
     undoBtn.title = t.undoShortcutHint;
   }
+  const authTitle = document.getElementById("authTitle");
+  if (authTitle) authTitle.textContent = t.authTitle;
+  const emailInput = document.getElementById("authEmail");
+  if (emailInput) emailInput.placeholder = t.authEmailPlaceholder;
+  const passwordInput = document.getElementById("authPassword");
+  if (passwordInput) passwordInput.placeholder = t.authPasswordPlaceholder;
+  const loginBtn = document.getElementById("loginButton");
+  if (loginBtn) loginBtn.textContent = t.authLogin;
+  const registerBtn = document.getElementById("registerButton");
+  if (registerBtn) registerBtn.textContent = t.authRegister;
+  const logoutBtn = document.getElementById("logoutButton");
+  if (logoutBtn) logoutBtn.textContent = t.authLogout;
+  const moreSettingsToggle = document.getElementById("moreSettingsToggle");
+  const moreSettingsPanel = document.getElementById("moreSettingsPanel");
+  if (moreSettingsToggle) {
+    const isHidden = moreSettingsPanel && moreSettingsPanel.classList.contains("hidden");
+    moreSettingsToggle.textContent = isHidden
+      ? `${t.moreSettings} ▼`
+      : `${t.moreSettings} ▲`;
+  }
+  const memberUidInput = document.getElementById("memberUidInput");
+  if (memberUidInput) memberUidInput.placeholder = t.householdMemberPlaceholder;
+  const addMemberButton = document.getElementById("addMemberButton");
+  if (addMemberButton) addMemberButton.textContent = t.householdAddMember;
 
   const select = document.getElementById("itemCategory");
   for (let i = 1; i < select.options.length; i++) {
@@ -308,18 +456,8 @@ function updateLanguageUI() {
     select.options[i].textContent = translations[currentLang].categories[val];
   }
 
-  updateCookieBannerUI();
   renderCategoryOrderList();
   renderLists();
-}
-
-function updateCookieBannerUI() {
-  const t = translations[currentLang];
-  const bannerText = document.querySelector("#cookie-banner p");
-  const bannerBtn = document.querySelector("#accept-cookies");
-  
-  if (bannerText) bannerText.textContent = t.cookieBannerText;
-  if (bannerBtn) bannerBtn.textContent = t.cookieAccept;
 }
 
 // === CONTROLLER ===
@@ -376,10 +514,92 @@ function setupEventListeners() {
   document.querySelector(".toggle-category-order")
     .addEventListener("click", toggleCategoryOrderVisibility);
 
+  const moreSettingsToggle = document.getElementById("moreSettingsToggle");
+  const moreSettingsPanel = document.getElementById("moreSettingsPanel");
+  if (moreSettingsToggle && moreSettingsPanel) {
+    moreSettingsToggle.addEventListener("click", () => {
+      const isHidden = moreSettingsPanel.classList.toggle("hidden");
+      const t = translations[currentLang];
+      moreSettingsToggle.textContent = isHidden
+        ? `${t.moreSettings} ▼`
+        : `${t.moreSettings} ▲`;
+    });
+  }
+
+  const loginBtn = document.getElementById("loginButton");
+  const registerBtn = document.getElementById("registerButton");
+  const authMessage = document.getElementById("authMessage");
+  const authEmail = document.getElementById("authEmail");
+  const authPassword = document.getElementById("authPassword");
+  const authOverlay = document.getElementById("authOverlay");
+
+  const showAuthError = error => {
+    const errorCode = error && error.code ? error.code : "";
+    let details = error && error.message ? error.message : "unknown";
+    if (errorCode === "auth/unauthorized-domain") {
+      details = "Domena nie jest dozwolona w Firebase Auth. Dodaj gilgaladea.github.io do Authorized domains.";
+    } else if (errorCode === "auth/invalid-credential" || errorCode === "auth/wrong-password" || errorCode === "auth/user-not-found") {
+      details = "Nieprawidlowy email lub haslo.";
+    } else if (errorCode === "auth/email-already-in-use") {
+      details = "Ten email jest juz zarejestrowany.";
+    } else if (errorCode === "auth/weak-password") {
+      details = "Haslo jest za slabe (minimum 6 znakow).";
+    }
+    authMessage.textContent = `${translations[currentLang].authErrorPrefix} ${details}${errorCode ? ` (${errorCode})` : ""}`;
+  };
+
+  if (loginBtn) {
+    loginBtn.addEventListener("click", async () => {
+      try {
+        authMessage.textContent = "";
+        await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+      } catch (error) {
+        showAuthError(error);
+      }
+    });
+  }
+
+  if (registerBtn) {
+    registerBtn.addEventListener("click", async () => {
+      try {
+        authMessage.textContent = "";
+        await createUserWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+      } catch (error) {
+        showAuthError(error);
+      }
+    });
+  }
+
+  const logoutBtn = document.getElementById("logoutButton");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+  }
+
   const undoBtn = document.getElementById("undoButton");
   if (undoBtn) {
     undoBtn.addEventListener("click", undoLastChange);
   }
+
+  const addMemberButton = document.getElementById("addMemberButton");
+  const memberUidInput = document.getElementById("memberUidInput");
+  if (addMemberButton) {
+    addMemberButton.addEventListener("click", async () => {
+      try {
+        const result = await addMemberToHousehold(memberUidInput.value);
+        if (result === null) {
+          setHouseholdMessage(translations[currentLang].householdMemberExists);
+        } else if (result) {
+          setHouseholdMessage(translations[currentLang].householdMemberAdded);
+          memberUidInput.value = "";
+        }
+      } catch (error) {
+        setHouseholdMessage(`${translations[currentLang].householdActionError} ${error.message}`, true);
+      }
+    });
+  }
+
 
   document.addEventListener("keydown", async e => {
     const isUndoShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey;
@@ -388,35 +608,69 @@ function setupEventListeners() {
     e.preventDefault();
     await undoLastChange();
   });
+
+  onAuthStateChanged(auth, async user => {
+    if (!user) {
+      appReady = false;
+      currentUserId = "";
+      householdId = "";
+      shoppingList = [];
+      undoStack.length = 0;
+      try { localStorage.removeItem("shoppingListCache"); } catch (_) {}
+      updateUndoUI();
+      renderLists();
+      if (shoppingUnsubscribe) {
+        shoppingUnsubscribe();
+        shoppingUnsubscribe = null;
+      }
+      updateHouseholdMetaUI();
+      authOverlay.classList.remove("hidden");
+      return;
+    }
+
+    authOverlay.classList.add("hidden");
+    if (appReady) return;
+    try {
+      await ensureUserAndHousehold();
+      appReady = true;
+      setHouseholdMessage("");
+      loadData();
+    } catch (error) {
+      appReady = false;
+      const errorCode = error && error.code ? error.code : "";
+      setHouseholdMessage(
+        `${translations[currentLang].householdActionError} ${error.message}${errorCode ? ` (${errorCode})` : ""}`,
+        true
+      );
+      if (errorCode === "permission-denied") {
+        const authMessage = document.getElementById("authMessage");
+        if (authMessage) {
+          authMessage.textContent = "Brak uprawnien Firestore. Sprawdz, czy reguly opublikowano w projekcie shopping-list-c5094.";
+        }
+        await signOut(auth);
+      }
+      authOverlay.classList.remove("hidden");
+    }
+  });
 }
 
 // === INIT ===
 document.addEventListener("DOMContentLoaded", async () => {
-  const banner = document.getElementById('cookie-banner');
-  const acceptBtn = document.getElementById('accept-cookies');
-  const savedCookiesAccepted = localStorage.getItem('cookiesAccepted');
-
-  if (savedCookiesAccepted === 'true') {
-    cookiesAccepted = true;
-    banner.style.display = 'none';
-  } else {
-    banner.style.display = 'block';
-  }
-
-  acceptBtn.addEventListener('click', () => {
-    localStorage.setItem('cookiesAccepted', 'true');
-    cookiesAccepted = true;
-    banner.style.display = 'none';
-  });
-
   currentLang = localStorage.getItem("lang") || "pl";
   const savedTheme = localStorage.getItem("theme");
   if (savedTheme === "dark") document.body.classList.add("dark-mode");
 
+  try {
+    const cached = localStorage.getItem("shoppingListCache");
+    if (cached) {
+      shoppingList = JSON.parse(cached);
+      renderLists();
+    }
+  } catch (_) {}
+
   setupEventListeners();
   updateUndoUI();
   updateLanguageUI();
-  loadData();
 
   document.body.classList.add('loaded');
   const container = document.querySelector('.container');

@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <h3 id="authTitle">Logowanie</h3>
+      <input id="authEmail" type="email" placeholder="Email" autocomplete="email">
+      <input id="authPassword" type="password" placeholder="Hasło" autocomplete="current-password">
+      <div class="auth-actions">
+        <button id="loginButton">Zaloguj</button>
+        <button id="registerButton">Zarejestruj</button>
+      </div>
+      <p id="authMessage" class="auth-message"></p>
+    </div>
+  </div>
   <div class="container">
 
     <!-- Sidebar / Menu -->
@@ -15,13 +27,28 @@
 
       <h4 class="centered_text">Ustawienia</h4>
       <div class="toggle-container">
-        <button id="languageToggle">English</button>
-      </div>
-      <div class="toggle-container">
-        <button id="themeToggle">Tryb ciemny</button>
-      </div>
-      <div class="toggle-container">
         <button id="undoButton" aria-label="Cofnij ostatnią zmianę">Cofnij</button>
+      </div>
+      <div class="toggle-container">
+        <button id="moreSettingsToggle">Więcej ustawień ▼</button>
+      </div>
+      <div id="moreSettingsPanel" class="more-settings-panel hidden">
+        <div class="toggle-container">
+          <button id="languageToggle">English</button>
+        </div>
+        <div class="toggle-container">
+          <button id="themeToggle">Tryb ciemny</button>
+        </div>
+        <div class="toggle-container">
+          <button id="logoutButton">Wyloguj</button>
+        </div>
+        <div class="household-panel">
+          <p class="household-meta"><strong>UID:</strong> <span id="currentUidLabel">-</span></p>
+          <p class="household-meta"><strong>Household:</strong> <span id="currentHouseholdLabel">-</span></p>
+          <input id="memberUidInput" type="text" placeholder="UID domownika" class="centered_text">
+          <button id="addMemberButton" type="button">Dodaj domownika</button>
+          <p id="householdActionMessage" class="household-message"></p>
+        </div>
       </div>
 
       <hr>
@@ -83,8 +110,10 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } 
+  import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc, serverTimestamp } 
     from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } 
+    from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCFORia989pRh6Q7n0PRPv2JYM-7kFj1vU",
@@ -99,17 +128,15 @@ const firebaseConfig = {
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const auth = getAuth(app);
 
   window.db = db;
-  window.firestore = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc };
+  window.firestore = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc, serverTimestamp };
+  window.firebaseAuth = { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut };
 </script>
 
 <script src="translations.js" defer></script>
 <script src="script.js" defer></script>
 
-  <div id="cookie-banner" class="cookie-banner">
-    <p></p>
-    <button id="accept-cookies"></button>
-  </div>
 </body>
 </html>
