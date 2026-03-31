@@ -15,9 +15,13 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
-      allow create, update: if signedIn() && request.auth.uid == uid
+      allow create, update: if signedIn()
         && request.resource.data.householdId is string
-        && request.resource.data.householdId.size() > 0;
+        && request.resource.data.householdId.size() > 0
+        && (
+          request.auth.uid == uid
+          || isMember(request.resource.data.householdId)
+        );
       allow delete: if false;
     }
 

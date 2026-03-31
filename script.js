@@ -107,6 +107,10 @@ async function addMemberToHousehold(memberUid) {
   if (members.includes(normalizedUid)) return null;
 
   await setDoc(householdRef, { name, members: [...members, normalizedUid] }, { merge: true });
+
+  const memberUserRef = doc(db, "users", normalizedUid);
+  await setDoc(memberUserRef, { householdId }, { merge: true });
+
   return true;
 }
 
@@ -599,7 +603,6 @@ function setupEventListeners() {
       }
     });
   }
-
 
   document.addEventListener("keydown", async e => {
     const isUndoShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey;
