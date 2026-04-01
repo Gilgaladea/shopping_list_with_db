@@ -332,7 +332,9 @@ function renderLists() {
   categoryOrder.forEach(category => {
     if (!categories[category]) return;
 
-    const matchingItems = categories[category].filter(item => matchesSearch(item.name, search));
+    const matchingItems = categories[category]
+      .filter(item => matchesSearch(item.name, search))
+      .sort((a, b) => a.name.localeCompare(b.name, currentLang));
     if (matchingItems.length === 0) return;
 
     const catBlock = document.createElement("div");
