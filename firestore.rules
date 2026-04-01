@@ -21,7 +21,8 @@ service cloud.firestore {
         && (
           request.auth.uid == uid
           || isMember(request.resource.data.householdId)
-        );
+        )
+        && (!("categoryOrder" in request.resource.data) || request.resource.data.categoryOrder is list);
       allow delete: if false;
     }
 

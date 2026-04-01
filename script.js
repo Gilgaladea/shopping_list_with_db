@@ -70,6 +70,12 @@ async function ensureUserAndHousehold() {
     }
   }
 
+  const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+  if (Array.isArray(userData.categoryOrder) && userData.categoryOrder.length > 0) {
+    categoryOrder = userData.categoryOrder;
+  }
+  try { localStorage.setItem("categoryOrderCache", JSON.stringify(categoryOrder)); } catch (_) {}
+
   localStorage.setItem("shoppingHouseholdId", householdId);
   updateHouseholdMetaUI();
 }
@@ -145,7 +151,7 @@ async function undoLastChange() {
     if (action.type === "add") {
       await deleteDoc(getShoppingItemDocRef(action.id));
     } else if (action.type === "delete") {
-      const { createdAt, updatedAt, ...rest } = action.item;
+      const { id, createdAt, updatedAt, ...rest } = action.item;
       await setDoc(getShoppingItemDocRef(action.item.id), {
         ...rest,
         createdAt: serverTimestamp(),
@@ -171,6 +177,15 @@ async function undoLastChange() {
   } finally {
     isUndoInProgress = false;
   }
+}
+
+async function saveCategoryOrder() {
+  if (!appReady || !currentUserId) return;
+  try {
+    localStorage.setItem("categoryOrderCache", JSON.stringify(categoryOrder));
+    const userRef = doc(db, "users", currentUserId);
+    await updateDoc(userRef, { categoryOrder });
+  } catch (_) {}
 }
 
 // === DATABASE FUNCTIONS ===
@@ -290,10 +305,19 @@ function createProductElement(item) {
   return li;
 }
 
+function normalize(str) {
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function matchesSearch(name, search) {
+  if (!search) return true;
+  return normalize(name).includes(search);
+}
+
 function renderLists() {
   const toBuyList = document.getElementById("toBuyList");
   const productContainer = document.getElementById("productContainer");
-  const search = document.getElementById("searchInput").value.toLowerCase();
+  const search = normalize(document.getElementById("searchInput").value);
 
   toBuyList.innerHTML = "";
   productContainer.innerHTML = "";
@@ -308,13 +332,15 @@ function renderLists() {
   categoryOrder.forEach(category => {
     if (!categories[category]) return;
 
+    const matchingItems = categories[category].filter(item => matchesSearch(item.name, search));
+    if (matchingItems.length === 0) return;
+
     const catBlock = document.createElement("div");
     const title = document.createElement("h3");
     title.textContent = translations[currentLang].categories[category] || category;
     catBlock.appendChild(title);
 
-    categories[category].forEach(item => {
-      if (!item.name.toLowerCase().includes(search)) return;
+    matchingItems.forEach(item => {
       const li = createProductElement(item);
       catBlock.appendChild(li);
     });
@@ -324,7 +350,7 @@ function renderLists() {
 
   categoryOrder.forEach(category => {
     shoppingList
-      .filter(i => i.toBuy && i.category === category && i.name.toLowerCase().includes(search))
+      .filter(i => i.toBuy && i.category === category && matchesSearch(i.name, search))
       .forEach(item => {
         const li = document.createElement("li");
         li.classList.add("product-item");
@@ -385,6 +411,7 @@ function renderCategoryOrderList() {
       li.classList.remove("dragging");
       const newOrder = [...ul.querySelectorAll("li")].map(li => li.dataset.category);
       categoryOrder = newOrder;
+      saveCategoryOrder();
       renderLists();
     });
 
@@ -619,7 +646,11 @@ function setupEventListeners() {
       householdId = "";
       shoppingList = [];
       undoStack.length = 0;
-      try { localStorage.removeItem("shoppingListCache"); } catch (_) {}
+      try {
+        localStorage.removeItem("shoppingListCache");
+        localStorage.removeItem("categoryOrderCache");
+      } catch (_) {}
+      categoryOrder = [...defaultCategoryOrder];
       updateUndoUI();
       renderLists();
       if (shoppingUnsubscribe) {
@@ -662,6 +693,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   currentLang = localStorage.getItem("lang") || "pl";
   const savedTheme = localStorage.getItem("theme");
   if (savedTheme === "dark") document.body.classList.add("dark-mode");
+
+  try {
+    const cachedOrder = localStorage.getItem("categoryOrderCache");
+    if (cachedOrder) {
+      const parsed = JSON.parse(cachedOrder);
+      if (Array.isArray(parsed) && parsed.length > 0) categoryOrder = parsed;
+    }
+  } catch (_) {}
 
   try {
     const cached = localStorage.getItem("shoppingListCache");
