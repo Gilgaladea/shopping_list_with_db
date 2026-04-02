@@ -298,6 +298,14 @@ function createProductElement(item) {
   deleteBtn.className = "delete-btn";
   deleteBtn.addEventListener("click", () => deleteProduct(item.id));
 
+  li.addEventListener("click", e => {
+    if (e.target === checkbox || e.target === deleteBtn) return;
+    deleteBtn.classList.remove("visible");
+    void deleteBtn.offsetWidth;
+    deleteBtn.classList.add("visible");
+    deleteBtn.addEventListener("animationend", () => deleteBtn.classList.remove("visible"), { once: true });
+  });
+
   li.appendChild(checkbox);
   li.appendChild(label);
   li.appendChild(deleteBtn);
@@ -716,10 +724,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateUndoUI();
   updateLanguageUI();
 
-  document.body.classList.add('loaded');
   const container = document.querySelector('.container');
   const main = document.querySelector('.main');
   if (container && main) {
     container.scrollLeft = main.offsetLeft;
   }
+  document.body.classList.add('loaded');
 });

@@ -396,6 +396,7 @@ hr {
     height: 100vh;
     box-sizing: border-box;
     scroll-snap-align: start;
+    scroll-snap-stop: always;
   }
 
   .sidebar {
@@ -409,7 +410,7 @@ hr {
   }
 
   body.loaded .container {
-    scroll-behavior: auto;
+    scroll-behavior: smooth;
   }
 
    body {
@@ -425,6 +426,23 @@ hr {
   .add-form button,
   #searchInput {
     font-size: 1rem;
+  }
+
+  li:hover .delete-btn,
+  .product-item:hover .delete-btn {
+    opacity: 0;
+  }
+
+  li .delete-btn.visible,
+  .product-item .delete-btn.visible {
+    animation: fade-in-out 1s ease forwards;
+  }
+
+  @keyframes fade-in-out {
+    0%   { opacity: 0; }
+    10%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { opacity: 0; }
   }
 }
 
