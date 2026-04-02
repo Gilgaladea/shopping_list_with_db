@@ -435,7 +435,7 @@ hr {
 
   li .delete-btn.visible,
   .product-item .delete-btn.visible {
-    animation: fade-in-out 1s ease forwards;
+    animation: fade-in-out 2s ease forwards;
   }
 
   @keyframes fade-in-out {
