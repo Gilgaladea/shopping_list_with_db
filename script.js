@@ -535,7 +535,9 @@ function setupEventListeners() {
     document.getElementById("itemName").focus();
   });
 
-  document.getElementById("searchInput").addEventListener("input", renderLists);
+  const searchInput = document.getElementById("searchInput");
+  searchInput.addEventListener("input", renderLists);
+  searchInput.addEventListener("search", renderLists);
 
   document.getElementById("themeToggle").addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
