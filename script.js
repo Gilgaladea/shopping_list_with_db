@@ -536,8 +536,18 @@ function setupEventListeners() {
   });
 
   const searchInput = document.getElementById("searchInput");
-  searchInput.addEventListener("input", renderLists);
-  searchInput.addEventListener("search", renderLists);
+  const searchClear = document.getElementById("searchClear");
+  const updateSearchClear = () => {
+    searchClear.classList.toggle("visible", searchInput.value.length > 0);
+  };
+  searchInput.addEventListener("input", () => { updateSearchClear(); renderLists(); });
+  searchInput.addEventListener("search", () => { updateSearchClear(); renderLists(); });
+  searchClear.addEventListener("click", () => {
+    searchInput.value = "";
+    updateSearchClear();
+    renderLists();
+    searchInput.focus();
+  });
 
   document.getElementById("themeToggle").addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
