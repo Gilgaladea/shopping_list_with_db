@@ -161,6 +161,7 @@ async function undoLastChange() {
       await updateDoc(getShoppingItemDocRef(action.id), {
         toBuy: action.previousToBuy,
         quantity: action.previousQuantity,
+        starred: action.previousStarred,
         updatedAt: serverTimestamp()
       });
     } else if (action.type === "updateQuantity") {
@@ -224,6 +225,7 @@ async function toggleToBuy(id) {
   if (!item || !appReady) return;
   const previousToBuy = item.toBuy;
   const previousQuantity = item.quantity || 1;
+  const previousStarred = !!item.starred;
   item.toBuy = !item.toBuy;
   
   // When adding to shopping list, set default quantity
@@ -241,7 +243,7 @@ async function toggleToBuy(id) {
     item.starred = false;
   }
   await updateDoc(getShoppingItemDocRef(id), updateData);
-  pushUndoAction({ type: "toggle", id, previousToBuy, previousQuantity });
+  pushUndoAction({ type: "toggle", id, previousToBuy, previousQuantity, previousStarred });
   renderLists();
 }
 
