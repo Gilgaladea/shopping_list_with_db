@@ -231,11 +231,16 @@ async function toggleToBuy(id) {
     item.quantity = 1;
   }
   
-  await updateDoc(getShoppingItemDocRef(id), {
+  const updateData = {
     toBuy: item.toBuy,
     quantity: item.quantity || 1,
     updatedAt: serverTimestamp()
-  });
+  };
+  if (!item.toBuy) {
+    updateData.starred = false;
+    item.starred = false;
+  }
+  await updateDoc(getShoppingItemDocRef(id), updateData);
   pushUndoAction({ type: "toggle", id, previousToBuy, previousQuantity });
   renderLists();
 }
@@ -266,6 +271,18 @@ async function updateUnit(id, newUnit) {
     updatedAt: serverTimestamp()
   });
   pushUndoAction({ type: "updateUnit", id, previousUnit });
+}
+
+async function toggleStar(id) {
+  if (!appReady) return;
+  const item = shoppingList.find(i => i.id === id);
+  if (!item) return;
+  item.starred = !item.starred;
+  await updateDoc(getShoppingItemDocRef(id), {
+    starred: item.starred,
+    updatedAt: serverTimestamp()
+  });
+  renderLists();
 }
 
 async function deleteProduct(id) {
@@ -361,6 +378,7 @@ function renderLists() {
   categoryOrder.forEach(category => {
     shoppingList
       .filter(i => i.toBuy && i.category === category && matchesSearch(i.name, search))
+      .sort((a, b) => a.name.localeCompare(b.name, currentLang))
       .forEach(item => {
         const li = document.createElement("li");
         li.classList.add("product-item");
@@ -397,8 +415,14 @@ function renderLists() {
         unitSelect.value = item.unit || "szt";
         unitSelect.addEventListener("change", () => updateUnit(item.id, unitSelect.value));
 
+        const star = document.createElement("span");
+        star.className = "star-btn" + (item.starred ? " starred" : "");
+        star.textContent = item.starred ? "★" : "☆";
+        star.addEventListener("click", () => toggleStar(item.id));
+
         li.appendChild(checkbox);
         li.appendChild(label);
+        li.appendChild(star);
         li.appendChild(quantityInput);
         li.appendChild(unitSelect);
         toBuyList.appendChild(li);

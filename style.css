@@ -506,6 +506,22 @@ input[type="checkbox"]:checked::after {
 /* ==========================
    Quantity Input for Shopping List
    ========================== */
+.star-btn {
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--text-color);
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.star-btn.starred {
+  opacity: 0.8;
+  color: #f5a623;
+}
+
 .quantity-input {
   width: 60px;
   padding: 4px 6px;
@@ -515,7 +531,6 @@ input[type="checkbox"]:checked::after {
   background-color: var(--input-bg);
   color: var(--text-color);
   text-align: center;
-  margin-left: auto;
 }
 
 .quantity-input:focus {
